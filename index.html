@@ -383,7 +383,7 @@ function renderDangerList() {
 }
 
 /* ============ 전체 매장 표 ============ */
-let sortKey = 'remainBySales', sortAsc = true, searchTerm = '';
+let sortKey = 'name', sortAsc = true, searchTerm = '';
 
 function renderTable() {
   let results = DATA.stores.map(computeLive).filter(r =>
