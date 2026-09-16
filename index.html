@@ -72,6 +72,7 @@
   .kpi-card{border:1px solid var(--border);border-radius:8px;padding:10px;background:#FAFBFD;}
   .kpi-label{font-size:11.5px;color:var(--muted);margin-bottom:6px;}
   .kpi-value{font-size:16px;font-weight:700;}
+  .kpi-value.muted-value{font-size:14px;font-weight:600;color:var(--muted);}
 
   @media (max-width:760px){
     #main-table thead, #sales-table thead{display:none;}
@@ -497,12 +498,12 @@ function renderStorePanel() {
       <div class="upload-status ${r.hasDaily ? 'ok' : 'idle'}" id="daily-status">${r.hasDaily ? '✓ ' + state.daily[name].sourceLabel : '업로드 전에는 파일 기준 추정치가 표시됩니다'}</div>
     </div>
     <div class="kpi-grid">
-      <div class="kpi-card"><div class="kpi-label">예상 진도율</div><div class="kpi-value">${r.forecastRate !== null ? (r.forecastRate * 100).toFixed(1) + '%' : '-'}</div></div>
-      <div class="kpi-card"><div class="kpi-label">예상마감금액</div><div class="kpi-value">${fmt(r.forecastClose)}원</div></div>
+      <div class="kpi-card"><div class="kpi-label">예상 진도율</div><div class="kpi-value ${r.hasDaily ? '' : 'muted-value'}">${r.hasDaily && r.forecastRate !== null ? (r.forecastRate * 100).toFixed(1) + '%' : '업로드 필요'}</div></div>
+      <div class="kpi-card"><div class="kpi-label">예상마감금액</div><div class="kpi-value ${r.hasDaily ? '' : 'muted-value'}">${r.hasDaily ? fmt(r.forecastClose) + '원' : '업로드 필요'}</div></div>
       <div class="kpi-card"><div class="kpi-label">85% 기준 매출금액</div><div class="kpi-value">${fmt(r.target85)}원</div></div>
-      <div class="kpi-card"><div class="kpi-label">85% 대비 과부족금액</div><div class="kpi-value"><span class="chip ${signClass(r.shortfall85)}">${fmtSigned(r.shortfall85, '원')}</span></div></div>
+      <div class="kpi-card"><div class="kpi-label">85% 대비 과부족금액</div><div class="kpi-value ${r.hasDaily ? '' : 'muted-value'}">${r.hasDaily ? `<span class="chip ${signClass(r.shortfall85)}">${fmtSigned(r.shortfall85, '원')}</span>` : '업로드 필요'}</div></div>
     </div>
-    <div class="hint" style="margin-top:6px;">${r.forecastSource}</div>
+    <div class="hint" style="margin-top:6px;">${r.hasDaily ? r.forecastSource : '이 매장의 일자별 매출현황을 업로드하거나(개별), 상단에서 전 매장 파일을 업로드하면(일괄) 실시간으로 계산됩니다.'}</div>
   `;
 
   document.getElementById('store-select').addEventListener('change', (e) => {
