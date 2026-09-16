@@ -8,7 +8,7 @@
   :root{
     --navy:#002060; --navy-bg:#D9E1F2; --slate:#595959;
     --pos:#0B5FBF; --neg:#C00000; --warn:#B5651D;
-    --border:#DEE1E6; --bg:#F4F6F9; --card:#FFFFFF; --text:#1F2430; --muted:#8A8F98;
+    --input-bg:#FFF2CC; --border:#DEE1E6; --bg:#F4F6F9; --card:#FFFFFF; --text:#1F2430; --muted:#8A8F98;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;}
@@ -59,19 +59,42 @@
   .status-badge.danger{background:#FBE9E9;color:var(--neg);}
   .status-badge.warn{background:#FFF3E0;color:var(--warn);}
   .status-badge.ok{background:#E4EEFB;color:var(--pos);}
-  .hc-chip{display:inline-block;background:#F0F2F6;border-radius:5px;padding:1px 6px;margin:1px;font-size:11px;color:var(--slate);}
 
   .table-scroll{overflow-x:auto;}
   footer{max-width:1180px;margin:0 auto;padding:8px 14px 30px;font-size:11px;color:var(--muted);}
 
+  /* 개별 매장 패널 */
+  .store-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .store-head select{padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:13.5px;min-width:220px;font-weight:600;}
+  .panel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:16px;}
+  .panel-block{border:1px solid var(--border);border-radius:8px;padding:12px;background:#FAFBFD;}
+  .panel-block h3{margin:0 0 10px;font-size:12.5px;font-weight:700;color:var(--slate);}
+  .hc-input-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;}
+  .hc-input-grid label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);font-weight:600;}
+  .hc-input-grid input{padding:6px 8px;border:1px solid var(--border);border-radius:5px;background:var(--input-bg);font-size:13px;text-align:center;}
+  #daily-file-input{width:100%;font-size:12px;margin-bottom:6px;}
+  .upload-status{font-size:11.5px;color:var(--muted);margin-bottom:10px;}
+  .upload-status.ok{color:#146C2E;font-weight:600;}
+  .holiday-row{display:flex;flex-direction:column;gap:4px;}
+  .holiday-row label{font-size:11px;font-weight:600;color:var(--muted);}
+  .holiday-row input{padding:7px 8px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:6px;}
+  .kpi-card{border:1px solid var(--border);border-radius:8px;padding:10px;background:#FAFBFD;}
+  .kpi-label{font-size:11.5px;color:var(--muted);margin-bottom:6px;}
+  .kpi-value{font-size:16px;font-weight:700;}
+
+  .detail-table td:first-child{text-align:left;background:#FAFBFD;color:var(--slate);}
+  .detail-table td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;}
+
   @media (max-width:720px){
-    thead{display:none;}
-    table, tbody, tr, td{display:block;width:100%;}
-    tbody tr{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;padding:8px 4px;background:#fff;}
-    tbody td{display:flex;justify-content:space-between;align-items:center;text-align:right;border:none;padding:5px 8px;white-space:normal;}
-    tbody td::before{content:attr(data-label);font-weight:600;color:var(--muted);font-size:11.5px;text-align:left;}
-    tbody td.name-cell{font-size:14.5px;justify-content:flex-start;gap:8px;}
-    tbody td.name-cell::before{content:'';}
+    #main-table thead{display:none;}
+    #main-table, #main-table tbody, #main-table tr, #main-table td{display:block;width:100%;}
+    #main-table tbody tr{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;padding:8px 4px;background:#fff;}
+    #main-table tbody td{display:flex;justify-content:space-between;align-items:center;text-align:right;border:none;padding:5px 8px;white-space:normal;}
+    #main-table tbody td::before{content:attr(data-label);font-weight:600;color:var(--muted);font-size:11.5px;text-align:left;}
+    #main-table tbody td.name-cell{font-size:14.5px;justify-content:flex-start;gap:8px;}
+    #main-table tbody td.name-cell::before{content:'';}
   }
 </style>
 </head>
@@ -80,7 +103,7 @@
 <header>
   <div class="top">
     <h1>대경지역 허용인시 현황</h1>
-    <span class="meta">9월 기준 · 생성 2026-09-16 05:55</span>
+    <span class="meta">9월 기준(본사 통보) · 생성 2026-09-16 05:55</span>
   </div>
 </header>
 
@@ -88,14 +111,14 @@
   <div class="summary-grid" id="summary-grid"></div>
 
   <section class="card">
-    <h2>⚠ 잔여인시 부족 매장 (해당월 기준, 우선 확인 필요)</h2>
+    <h2>⚠ 잔여인시 부족 매장</h2>
     <div class="sub">잔여인시가 마이너스인 매장 — 이미 허용 범위를 초과해 배정된 상태입니다. 부족분이 큰 순서로 정렬됩니다.</div>
     <div id="danger-list" class="danger-list"></div>
   </section>
 
   <section class="card">
     <h2>전체 매장 현황</h2>
-    <div class="sub">열 제목을 클릭하면 정렬됩니다. 모바일에서는 카드 형태로 표시됩니다.</div>
+    <div class="sub">열 제목을 클릭하면 정렬됩니다. 인원수는 아래 "개별 매장 확인"에서 입력하면 이 표에도 즉시 반영됩니다.</div>
     <div class="toolbar">
       <input type="search" id="search-input" placeholder="매장명 검색..." />
       <span class="filter-chip active" data-type="전체">전체</span>
@@ -110,11 +133,10 @@
             <th data-key="type">유형</th>
             <th data-key="target">목표</th>
             <th data-key="productivity">인시생산</th>
-            <th data-key="allowedTotal">허용인시(전체)</th>
+            <th data-key="allowedTotalLive">허용인시(전체)</th>
             <th data-key="allowedShort">허용인시(단시간)</th>
-            <th data-key="headcountSum">인원구성</th>
-            <th data-key="remain">잔여인시</th>
-            <th data-key="remainBySales">잔여(예상매출)</th>
+            <th data-key="remainThisMonth">잔여인시(해당월)</th>
+            <th data-key="remainBySales">잔여(매출)</th>
             <th data-key="remainByAvg">잔여(월평균)</th>
           </tr>
         </thead>
@@ -122,15 +144,51 @@
       </table>
     </div>
   </section>
+
+  <section class="card">
+    <h2>개별 매장 확인</h2>
+    <div class="sub">매장을 선택해 근로형태별 인원수를 입력하고, 일자별 매출현황 파일을 올리면 예상마감·과부족금액이 실시간으로 계산됩니다.</div>
+    <div id="store-panel"></div>
+  </section>
 </main>
 
 <footer>
-  ABC-Mart 대경지역 · 본사 제공 허용인시 파일을 기반으로 생성된 정적 현황판입니다 (자동 업로드/재계산 없음, 매월 새 파일로 재생성).
+  ABC-Mart 대경지역 · 본사 제공 허용인시(단시간)·목표·인시생산 값을 기준으로, 매장 입력값과 매출 업로드를 반영해 계산합니다. 업로드한 매출 데이터는 이 브라우저 안에서만 계산되고 외부로 전송되지 않습니다.
 </footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const DATA = {"month": "9월", "stores": [{"name": "FH 대구동성로중앙점", "target": 210000000, "productivity": 148148.14814814815, "allowedTotal": 1417.5, "allowedShort": 537.5, "allowedBySales": 942.9564375, "allowedByAvg": 973.9867477500001, "ot": 40, "headcount": {"정규직": 5, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 1}, "remain": 209.5, "remainBySales": -265.0435625, "remainByAvg": -234.01325224999994, "type": "가두점"}, {"name": "GS 대구동성로중앙점", "target": 270000000, "productivity": 184100.41841004184, "allowedTotal": 1466.5909090909092, "allowedShort": 586.5909090909092, "allowedBySales": 1349.5987795454546, "allowedByAvg": 1284.6118278409092, "ot": 40, "headcount": {"정규직": 5, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 3}, "remain": -77.40909090909076, "remainBySales": -194.4012204545454, "remainByAvg": -259.3881721590908, "type": "가두점"}, {"name": "KM 대구월배이마트점", "target": 50000000, "productivity": 109289.6174863388, "allowedTotal": 457.5, "allowedShort": 81.5, "allowedBySales": 473.1187232142857, "allowedByAvg": 471.4582152, "ot": 40, "headcount": {"정규직": 2, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 0}, "remain": 41.5, "remainBySales": 57.118723214285694, "remainByAvg": 55.458215199999984, "type": "몰입점"}, {"name": "KM 대구이시아폴리스점", "target": 100000000, "productivity": 103383.45864661653, "allowedTotal": 967.2727272727274, "allowedShort": 591.2727272727274, "allowedBySales": 1296.7877236363638, "allowedByAvg": 821.6918945454546, "ot": 40, "headcount": {"정규직": 2, "2D/8H": 0, "3D/8H": 2, "5D/4H": 0, "5D/6H": 0, "5D/8H": 0}, "remain": 343.27272727272737, "remainBySales": 672.7877236363638, "remainByAvg": 197.6918945454546, "type": "몰입점"}, {"name": "KM 성서홈플러스점", "target": 40000000, "productivity": 112612.61261261262, "allowedTotal": 355.2, "allowedShort": 147.2, "allowedBySales": 230.7523817142857, "allowedByAvg": 342.43955544, "ot": 40, "headcount": {"정규직": 1, "2D/8H": 1, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 0}, "remain": 83.19999999999999, "remainBySales": -41.24761828571431, "remainByAvg": 70.43955543999999, "type": "몰입점"}, {"name": "KM 율하롯데아울렛점", "target": 45000000, "productivity": 113207.54716981133, "allowedTotal": 397.5, "allowedShort": 194.5, "allowedBySales": 421.16405833333334, "allowedByAvg": 365.03651066666663, "ot": 35, "headcount": {"정규직": 1, "2D/8H": 0, "3D/8H": 1, "5D/4H": 0, "5D/6H": 0, "5D/8H": 0}, "remain": 90.5, "remainBySales": 114.16405833333334, "remainByAvg": 58.03651066666663, "type": "몰입점"}, {"name": "MS 대구중앙로역점", "target": 220000000, "productivity": 143396.22641509434, "allowedTotal": 1534.2105263157896, "allowedShort": 822.2105263157896, "allowedBySales": 1491.8178486842105, "allowedByAvg": 1363.1406480263158, "ot": 40, "headcount": {"정규직": 4, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 2}, "remain": 366.2105263157896, "remainBySales": 323.8178486842105, "remainByAvg": 195.14064802631583, "type": "가두점"}, {"name": "SE 경산스타필드마켓점", "target": 240000000, "productivity": 146092.03798392988, "allowedTotal": 1642.8, "allowedShort": 1098.8, "allowedBySales": 1207.0263738571427, "allowedByAvg": 1586.1518067499999, "ot": 40, "headcount": {"정규직": 3, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 2}, "remain": 682.8, "remainBySales": 247.02637385714274, "remainByAvg": 626.1518067499999, "type": "몰입점"}, {"name": "SE 대구롯데점", "target": 110000000, "productivity": 123966.94214876032, "allowedTotal": 887.3333333333334, "allowedShort": 353.33333333333337, "allowedBySales": 671.0476771428571, "allowedByAvg": 756.8270732000001, "ot": 30, "headcount": {"정규직": 3, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 1}, "remain": 125.33333333333337, "remainBySales": -90.95232285714292, "remainByAvg": -5.172926799999914, "type": "몰입점"}, {"name": "SE 대구이시아폴리스점", "target": 270000000, "productivity": 152671.75572519083, "allowedTotal": 1768.5000000000002, "allowedShort": 1056.5000000000002, "allowedBySales": 1566.0594775000002, "allowedByAvg": 1787.12402765, "ot": 40, "headcount": {"정규직": 4, "2D/8H": 1, "3D/8H": 7, "5D/4H": 0, "5D/6H": 0, "5D/8H": 0}, "remain": 144.50000000000023, "remainBySales": -57.940522499999815, "remainByAvg": 163.12402765000002, "type": "몰입점"}, {"name": "SP 대구동성로점", "target": 260000000, "productivity": 142857.14285714287, "allowedTotal": 1819.9999999999998, "allowedShort": 1107.9999999999998, "allowedBySales": 1562.00535, "allowedByAvg": 1873.8632499999999, "ot": 40, "headcount": {"정규직": 4, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 5}, "remain": 147.99999999999977, "remainBySales": -109.99465000000009, "remainByAvg": 201.86324999999988, "type": "가두점"}, {"name": "ST 구미롯데마트점", "target": 200000000, "productivity": 135782.74760383388, "allowedTotal": 1472.941176470588, "allowedShort": 928.9411764705881, "allowedBySales": 1365.9429944537815, "allowedByAvg": 1419.345818235294, "ot": 40, "headcount": {"정규직": 3, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 4}, "remain": 176.94117647058806, "remainBySales": 69.94299445378147, "remainByAvg": 123.34581823529402, "type": "몰입점"}, {"name": "ST 구미원평점", "target": 120000000, "productivity": 127551.02040816327, "allowedTotal": 940.8, "allowedShort": 574.8, "allowedBySales": 791.5354159999999, "allowedByAvg": 927.6423239999999, "ot": 30, "headcount": {"정규직": 2, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 2}, "remain": 208.79999999999995, "remainBySales": 59.53541599999994, "remainByAvg": 195.64232399999992, "type": "가두점"}, {"name": "ST 구미인동점", "target": 120000000, "productivity": 112866.8171557562, "allowedTotal": 1063.2, "allowedShort": 524.2, "allowedBySales": 832.8112050000001, "allowedByAvg": 887.1697415000001, "ot": 35, "headcount": {"정규직": 3, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 1}, "remain": 286.20000000000005, "remainBySales": 55.811205000000086, "remainByAvg": 110.1697415000001, "type": "가두점"}, {"name": "ST 김천롯데마트점", "target": 90000000, "productivity": 114358.32274459975, "allowedTotal": 787, "allowedShort": 243, "allowedBySales": 594.7122275396827, "allowedByAvg": 732.5781542555555, "ot": 40, "headcount": {"정규직": 3, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 0}, "remain": 163, "remainBySales": -29.287772460317342, "remainByAvg": 108.57815425555555, "type": "몰입점"}, {"name": "ST 대구성서점", "target": 170000000, "productivity": 135623.86980108498, "allowedTotal": 1253.4666666666667, "allowedShort": 877.4666666666667, "allowedBySales": 1293.8083853333335, "allowedByAvg": 1332.0224844266668, "ot": 40, "headcount": {"정규직": 2, "2D/8H": 0, "3D/8H": 3, "5D/4H": 0, "5D/6H": 0, "5D/8H": 2}, "remain": 189.4666666666667, "remainBySales": 229.8083853333335, "remainByAvg": 268.0224844266668, "type": "가두점"}, {"name": "ST 대구신매점", "target": 80000000, "productivity": 119225.03725782414, "allowedTotal": 671, "allowedShort": 132, "allowedBySales": 594.2925381250001, "allowedByAvg": 660.1949121625, "ot": 35, "headcount": {"정규직": 3, "2D/8H": 0, "3D/8H": 1, "5D/4H": 0, "5D/6H": 0, "5D/8H": 0}, "remain": -42, "remainBySales": -118.70746187499992, "remainByAvg": -52.80508783749997, "type": "가두점"}, {"name": "ST 대구월배점", "target": 90000000, "productivity": 112517.58087201125, "allowedTotal": 799.875, "allowedShort": 255.875, "allowedBySales": 674.2644075, "allowedByAvg": 810.99955485, "ot": 40, "headcount": {"정규직": 3, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 1}, "remain": 7.875, "remainBySales": -117.73559250000005, "remainByAvg": 18.99955484999998, "type": "가두점"}, {"name": "ST 대구칠곡점", "target": 120000000, "productivity": 114285.71428571429, "allowedTotal": 1050, "allowedShort": 511, "allowedBySales": 900.3465625, "allowedByAvg": 950.76428125, "ot": 35, "headcount": {"정규직": 3, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 2}, "remain": 105, "remainBySales": -44.653437499999995, "remainByAvg": 5.764281249999954, "type": "가두점"}, {"name": "ST 대구현대아울렛점", "target": 110000000, "productivity": 129032.25806451614, "allowedTotal": 852.5, "allowedShort": 313.5, "allowedBySales": 709.6064964285714, "allowedByAvg": 821.28513125, "ot": 35, "headcount": {"정규직": 3, "2D/8H": 0, "3D/8H": 1, "5D/4H": 0, "5D/6H": 0, "5D/8H": 1}, "remain": -28.5, "remainBySales": -171.3935035714286, "remainByAvg": -59.71486875000005, "type": "몰입점"}, {"name": "ST 성서홈플러스점", "target": 130000000, "productivity": 133333.33333333334, "allowedTotal": 974.9999999999999, "allowedShort": 598.9999999999999, "allowedBySales": 545.823857142857, "allowedByAvg": 890.1206099999999, "ot": 40, "headcount": {"정규직": 2, "2D/8H": 0, "3D/8H": 0, "5D/4H": 0, "5D/6H": 0, "5D/8H": 2}, "remain": 222.9999999999999, "remainBySales": -206.17614285714296, "remainByAvg": 138.12060999999994, "type": "몰입점"}, {"name": "ST 율하롯데아울렛점", "target": 160000000, "productivity": 131578.94736842104, "allowedTotal": 1216.0000000000002, "allowedShort": 509.0000000000002, "allowedBySales": 945.2888685714287, "allowedByAvg": 1164.4641188, "ot": 35, "headcount": {"정규직": 4, "2D/8H": 0, "3D/8H": 1, "5D/4H": 0, "5D/6H": 0, "5D/8H": 1}, "remain": 132.00000000000023, "remainBySales": -138.71113142857132, "remainByAvg": 80.46411880000005, "type": "몰입점"}], "regionTotal": {"name": "대경지역", "target": 3205000000, "productivity": 128463.4956357523, "allowedTotal": 22378.690339150013, "allowedShort": 11508.690339150016, "allowedBySales": 19517.81135222259, "allowedByAvg": 21248.93194004936, "ot": null, "headcount": {"정규직": 60, "2D/8H": 2, "3D/8H": 16, "5D/4H": 0, "5D/6H": 0, "5D/8H": 29}, "remain": 3579.1903391500146, "remainBySales": 243.7677897225883, "remainByAvg": 2005.9186877993623}, "generatedAt": "2026-09-16 05:55"};
+</script>
+<script>
+/* ============ 상수 ============ */
+const STANDARD_HOURS = { '정규직': 168, '2D/8H': 64, '3D/8H': 104, '5D/4H': 84, '5D/6H': 126, '5D/8H': 168 };
+const EMP_TYPES = ['정규직', '2D/8H', '3D/8H', '5D/4H', '5D/6H', '5D/8H'];
+const LS_KEY = 'abcmart_allowedhours_v2';
 
+/* ============ 상태 ============ */
+const state = {
+  overrides: {},   // storeName -> { headcount:{}, ot, holidays:[] }
+  daily: {},       // storeName -> { byDate: [{date, value}], sourceLabel }
+  selectedStore: null,
+};
+
+function loadOverrides() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) state.overrides = JSON.parse(raw).overrides || {};
+  } catch (e) { /* ignore */ }
+  DATA.stores.forEach(s => {
+    if (!state.overrides[s.name]) {
+      state.overrides[s.name] = { headcount: { ...s.headcount }, ot: s.ot, holidays: [] };
+    }
+  });
+}
+function persistOverrides() {
+  localStorage.setItem(LS_KEY, JSON.stringify({ overrides: state.overrides }));
+}
+
+/* ============ 유틸 ============ */
 function fmt(n, digits) {
   if (n === null || n === undefined || isNaN(n)) return '-';
   return Number(n).toLocaleString('ko-KR', { maximumFractionDigits: digits ?? 0 });
@@ -144,108 +202,361 @@ function statusOf(remain) {
 function typeBadge(type) {
   return `<span class="type-badge ${type === '몰입점' ? 'mall' : 'street'}">${type}</span>`;
 }
-function headcountChips(hc) {
-  return Object.entries(hc).filter(([, v]) => v > 0)
-    .map(([k, v]) => `<span class="hc-chip">${k} ${v}</span>`).join('') || '<span class="hc-chip">-</span>';
+function daysInMonth(year, monthIndex0) { return new Date(year, monthIndex0 + 1, 0).getDate(); }
+function isHoliday(dateObj, extraHolidays) {
+  const dow = dateObj.getDay();
+  if (dow === 0 || dow === 6) return true;
+  const y = dateObj.getFullYear(), m = String(dateObj.getMonth() + 1).padStart(2, '0'), d = String(dateObj.getDate()).padStart(2, '0');
+  return (extraHolidays || []).includes(`${y}-${m}-${d}`);
 }
-function headcountSum(hc) {
-  return Object.values(hc).reduce((a, b) => a + (Number(b) || 0), 0);
+function countWeekdayHoliday(year, monthIndex0, extraHolidays) {
+  const total = daysInMonth(year, monthIndex0);
+  let holiday = 0, weekday = 0;
+  for (let d = 1; d <= total; d++) {
+    const dt = new Date(year, monthIndex0, d);
+    if (isHoliday(dt, extraHolidays)) holiday++; else weekday++;
+  }
+  return { weekday, holiday };
 }
 
-let sortKey = 'remain', sortAsc = true, activeType = '전체', searchTerm = '';
+/* ============ 계산 엔진 ============ */
+function assignedHoursOf(store) {
+  const ov = state.overrides[store.name];
+  const hc = ov.headcount, ot = Number(ov.ot ?? store.ot ?? 0);
+  let h = (Number(hc['정규직']) || 0) * (STANDARD_HOURS['정규직'] + ot);
+  EMP_TYPES.forEach(t => { if (t !== '정규직') h += (Number(hc[t]) || 0) * STANDARD_HOURS[t]; });
+  return h;
+}
 
+function computeLive(store) {
+  const ov = state.overrides[store.name];
+  const ot = Number(ov.ot ?? store.ot ?? 0);
+  const regularCount = Number(ov.headcount['정규직']) || 0;
+  const assignedHours = assignedHoursOf(store);
+
+  const allowedTotalLive = (store.allowedShort ?? 0) + regularCount * (STANDARD_HOURS['정규직'] + ot);
+  const remainThisMonth = allowedTotalLive - assignedHours;
+  const remainByAvg = (store.allowedByAvg ?? 0) - assignedHours;
+
+  const daily = state.daily[store.name];
+  let forecastClose, forecastSource;
+  if (daily && daily.byDate.length > 0) {
+    let year = null, monthIndex0 = null;
+    let wSum = 0, hSum = 0, wElapsed = 0, hElapsed = 0;
+    daily.byDate.forEach(r => {
+      if (year === null) { year = r.date.getFullYear(); monthIndex0 = r.date.getMonth(); }
+      if (isHoliday(r.date, ov.holidays)) { hSum += r.value; hElapsed++; }
+      else { wSum += r.value; wElapsed++; }
+    });
+    const mtdTotal = wSum + hSum;
+    const cal = countWeekdayHoliday(year, monthIndex0, ov.holidays);
+    const wRemain = Math.max(cal.weekday - wElapsed, 0);
+    const hRemain = Math.max(cal.holiday - hElapsed, 0);
+    const projW = wElapsed > 0 ? (wSum / wElapsed) * wRemain : 0;
+    const projH = hElapsed > 0 ? (hSum / hElapsed) * hRemain : 0;
+    forecastClose = projW + projH + mtdTotal;
+    forecastSource = `실시간 (경과 평일 ${wElapsed}일 · 휴일 ${hElapsed}일, ${daily.sourceLabel})`;
+  } else if (store.productivity) {
+    forecastClose = (store.allowedBySales ?? 0) * store.productivity;
+    forecastSource = '파일 기준 추정 (일자별 매출 업로드 시 실시간으로 반영됩니다)';
+  } else {
+    forecastClose = null;
+    forecastSource = '-';
+  }
+
+  const target85 = store.target !== null && store.target !== undefined ? store.target * 0.85 : null;
+  const shortfall85 = (forecastClose !== null && target85 !== null) ? forecastClose - target85 : null;
+  const allowedBySalesLive = (forecastClose !== null && store.productivity) ? forecastClose / store.productivity : store.allowedBySales;
+  const remainBySales = allowedBySalesLive !== null && allowedBySalesLive !== undefined ? allowedBySalesLive - assignedHours : null;
+
+  return {
+    store, assignedHours, allowedTotalLive, remainThisMonth, remainByAvg,
+    forecastClose, forecastSource, target85, shortfall85, allowedBySalesLive, remainBySales,
+    hasDaily: !!(daily && daily.byDate.length > 0),
+  };
+}
+
+/* ============ 엑셀 파싱 (일자별 매출현황) ============ */
+function fixSheetRange(ws) {
+  let maxRow = -1, maxCol = -1;
+  Object.keys(ws).forEach(key => {
+    if (key[0] === '!') return;
+    const a = XLSX.utils.decode_cell(key);
+    if (a.r > maxRow) maxRow = a.r;
+    if (a.c > maxCol) maxCol = a.c;
+  });
+  if (maxRow === -1) return;
+  const declared = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : null;
+  if (!declared || declared.e.r < maxRow || declared.e.c < maxCol) {
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxRow, c: maxCol } });
+  }
+}
+function excelDateToJSDate(v) {
+  if (v instanceof Date) return v;
+  if (typeof v === 'number') {
+    const utcDays = Math.floor(v - 25569);
+    return new Date(utcDays * 86400 * 1000);
+  }
+  if (typeof v === 'string') {
+    const m = v.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  return null;
+}
+function findHeaderRow(rows) {
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      if (String(row[c] ?? '').trim() === 'NO') return r;
+    }
+  }
+  return -1;
+}
+function parseDailyFile(rows, storeName) {
+  const headerRow = findHeaderRow(rows);
+  if (headerRow === -1) throw new Error('헤더(NO/일자) 행을 찾지 못했습니다.');
+  const header = rows[headerRow];
+  const dateCol = header.findIndex(v => String(v ?? '').trim() === '일자');
+  if (dateCol === -1) throw new Error('"일자" 열을 찾지 못했습니다.');
+  const dataCols = [];
+  header.forEach((v, idx) => {
+    const name = String(v ?? '').trim();
+    if (idx > dateCol && name && name !== '합계') dataCols.push({ name, idx });
+  });
+  let targetCol = dataCols.find(c => c.name === storeName);
+  let sourceLabel = targetCol ? `"${storeName}" 열 사용` : '';
+  if (!targetCol) {
+    if (dataCols.length === 1) { targetCol = dataCols[0]; sourceLabel = '단일 매장 파일로 인식'; }
+    else throw new Error(`"${storeName}" 매장 열을 찾지 못했습니다. (발견된 열: ${dataCols.map(c => c.name).join(', ') || '없음'})`);
+  }
+  const byDate = [];
+  for (let r = headerRow + 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const first = String(row[0] ?? '').trim();
+    if (first === '합계') break;
+    const dv = row[dateCol];
+    if (dv === undefined || dv === null || dv === '') continue;
+    const dt = excelDateToJSDate(dv);
+    if (!dt) continue;
+    byDate.push({ date: dt, value: Number(row[targetCol.idx]) || 0 });
+  }
+  return { byDate, sourceLabel };
+}
+function sheetToRows(ws) {
+  fixSheetRange(ws);
+  return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+}
+async function handleDailyUpload(file, storeName) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = sheetToRows(ws);
+  const parsed = parseDailyFile(rows, storeName);
+  parsed.sourceLabel = `${file.name} · ${parsed.sourceLabel}`;
+  state.daily[storeName] = parsed;
+}
+
+</script>
+<script>
+/* ============ 요약/위험매장 ============ */
 function renderSummary() {
-  const t = DATA.regionTotal || {};
-  const dangerCount = DATA.stores.filter(s => s.remain < 0).length;
-  const grid = document.getElementById('summary-grid');
-  grid.innerHTML = `
-    <div class="summary-card"><div class="label">지역 목표 합계</div><div class="value">${fmt(t.target)}원</div></div>
-    <div class="summary-card"><div class="label">지역 허용인시(전체)</div><div class="value">${fmt(t.allowedTotal)}h</div></div>
-    <div class="summary-card"><div class="label">지역 잔여인시(해당월)</div><div class="value ${t.remain < 0 ? 'neg' : 'pos'}">${fmt(t.remain)}h</div></div>
+  const results = DATA.stores.map(computeLive);
+  const totalTarget = DATA.stores.reduce((a, s) => a + (s.target || 0), 0);
+  const totalAllowed = results.reduce((a, r) => a + (r.allowedTotalLive || 0), 0);
+  const totalRemain = results.reduce((a, r) => a + (r.remainThisMonth || 0), 0);
+  const dangerCount = results.filter(r => r.remainThisMonth < 0).length;
+  document.getElementById('summary-grid').innerHTML = `
+    <div class="summary-card"><div class="label">지역 목표 합계</div><div class="value">${fmt(totalTarget)}원</div></div>
+    <div class="summary-card"><div class="label">지역 허용인시(전체)</div><div class="value">${fmt(totalAllowed)}h</div></div>
+    <div class="summary-card"><div class="label">지역 잔여인시(해당월)</div><div class="value ${totalRemain < 0 ? 'neg' : 'pos'}">${fmt(totalRemain)}h</div></div>
     <div class="summary-card"><div class="label">잔여인시 초과 매장 수</div><div class="value ${dangerCount > 0 ? 'neg' : 'pos'}">${dangerCount}개점</div></div>
   `;
 }
 
 function renderDangerList() {
-  const list = DATA.stores.filter(s => s.remain < 0).sort((a, b) => a.remain - b.remain);
+  const results = DATA.stores.map(computeLive).filter(r => r.remainThisMonth < 0).sort((a, b) => a.remainThisMonth - b.remainThisMonth);
   const wrap = document.getElementById('danger-list');
-  if (list.length === 0) {
+  if (results.length === 0) {
     wrap.innerHTML = `<div class="empty-good">모든 매장이 허용인시 범위 내에서 운영 중입니다.</div>`;
     return;
   }
-  wrap.innerHTML = list.map(s => `
+  wrap.innerHTML = results.map(r => `
     <div class="danger-row">
-      <div class="name">${s.name}<span class="type">${s.type}</span></div>
+      <div class="name">${r.store.name}<span class="type">${r.store.type}</span></div>
       <div class="figs">
-        <span>허용인시(전체) ${fmt(s.allowedTotal)}h</span>
-        <span>배정 초과 <b>${fmt(Math.abs(s.remain))}h</b></span>
+        <span>허용인시(전체) ${fmt(r.allowedTotalLive)}h</span>
+        <span>배정 초과 <b>${fmt(Math.abs(r.remainThisMonth))}h</b></span>
       </div>
     </div>
   `).join('');
 }
 
-function getSortValue(s, key) {
-  if (key === 'headcountSum') return headcountSum(s.headcount);
-  return s[key];
-}
+/* ============ 전체 매장 표 ============ */
+let sortKey = 'remainThisMonth', sortAsc = true, activeType = '전체', searchTerm = '';
 
 function renderTable() {
-  let rows = DATA.stores.filter(s =>
-    (activeType === '전체' || s.type === activeType) &&
-    (!searchTerm || s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  let results = DATA.stores.map(computeLive).filter(r =>
+    (activeType === '전체' || r.store.type === activeType) &&
+    (!searchTerm || r.store.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
-  rows = rows.slice().sort((a, b) => {
-    const av = getSortValue(a, sortKey), bv = getSortValue(b, sortKey);
+  const getVal = (r, key) => key === 'name' || key === 'type' ? r.store[key] : (r[key] ?? r.store[key]);
+  results = results.slice().sort((a, b) => {
+    const av = getVal(a, sortKey), bv = getVal(b, sortKey);
     if (typeof av === 'string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
     return sortAsc ? (av - bv) : (bv - av);
   });
 
-  document.getElementById('table-body').innerHTML = rows.map(s => {
-    const st = statusOf(s.remain);
+  document.getElementById('table-body').innerHTML = results.map(r => {
+    const s = r.store;
+    const st = statusOf(r.remainThisMonth);
     return `
     <tr>
       <td class="name-cell">${s.name}</td>
       <td data-label="유형">${typeBadge(s.type)}</td>
       <td class="num" data-label="목표">${fmt(s.target)}원</td>
       <td class="num" data-label="인시생산">${fmt(s.productivity)}</td>
-      <td class="num" data-label="허용인시(전체)">${fmt(s.allowedTotal)}h</td>
+      <td class="num" data-label="허용인시(전체)">${fmt(r.allowedTotalLive)}h</td>
       <td class="num" data-label="허용인시(단시간)">${fmt(s.allowedShort)}h</td>
-      <td data-label="인원구성">${headcountChips(s.headcount)}</td>
-      <td data-label="잔여인시"><span class="status-badge ${st.cls}">${fmt(s.remain)}h</span></td>
-      <td class="num" data-label="잔여(예상매출)">${fmt(s.remainBySales)}h</td>
-      <td class="num" data-label="잔여(월평균)">${fmt(s.remainByAvg)}h</td>
+      <td data-label="잔여인시(해당월)"><span class="status-badge ${st.cls}">${fmt(r.remainThisMonth)}h</span></td>
+      <td class="num" data-label="잔여(매출)">${fmt(r.remainBySales)}h</td>
+      <td class="num" data-label="잔여(월평균)">${fmt(r.remainByAvg)}h</td>
     </tr>`;
   }).join('');
 
   document.querySelectorAll('#main-table thead th').forEach(th => {
     const arrow = th.querySelector('.arrow');
     if (arrow) arrow.remove();
-    if (th.dataset.key === sortKey) {
-      th.insertAdjacentHTML('beforeend', `<span class="arrow">${sortAsc ? '▲' : '▼'}</span>`);
+    if (th.dataset.key === sortKey) th.insertAdjacentHTML('beforeend', `<span class="arrow">${sortAsc ? '▲' : '▼'}</span>`);
+  });
+}
+
+/* ============ 개별 매장 확인 패널 ============ */
+function renderStorePanel() {
+  const name = state.selectedStore || DATA.stores[0].name;
+  const store = DATA.stores.find(s => s.name === name);
+  const ov = state.overrides[name];
+  const r = computeLive(store);
+
+  const optionsHtml = DATA.stores.map(s => `<option value="${s.name}" ${s.name === name ? 'selected' : ''}>${s.name}</option>`).join('');
+
+  document.getElementById('store-panel').innerHTML = `
+    <div class="store-head">
+      <select id="store-select">${optionsHtml}</select>
+      ${typeBadge(store.type)}
+    </div>
+
+    <div class="panel-grid">
+      <div class="panel-block">
+        <h3>근로형태별 인원수 (입력 시 즉시 반영)</h3>
+        <div class="hc-input-grid">
+          ${EMP_TYPES.map(t => `
+            <label>${t}
+              <input type="number" min="0" class="hc-input" data-emp="${t}" value="${ov.headcount[t] ?? 0}" />
+            </label>`).join('')}
+          <label>월 OT
+            <input type="number" min="0" id="ot-input" value="${ov.ot}" />
+          </label>
+        </div>
+        <div class="hint">허용인시(단시간)는 본사 통보값(${fmt(store.allowedShort)}h)으로 고정되며, 정규직 인원수만 허용인시(전체)에 함께 반영됩니다.</div>
+      </div>
+
+      <div class="panel-block">
+        <h3>일자별 매출현황 업로드 (선택)</h3>
+        <input type="file" id="daily-file-input" accept=".xlsx,.xls" />
+        <div class="upload-status ${r.hasDaily ? 'ok' : 'idle'}" id="daily-status">${r.hasDaily ? '✓ ' + state.daily[name].sourceLabel : '업로드하면 예상마감이 실시간으로 반영됩니다'}</div>
+        <div class="holiday-row">
+          <label>추가 휴일(공휴일)</label>
+          <input type="text" id="holiday-input" placeholder="예: 2026-09-16, 2026-09-17" value="${(ov.holidays || []).join(', ')}" />
+          <span class="hint">토·일요일은 자동 반영됩니다.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">예상마감금액</div><div class="kpi-value">${fmt(r.forecastClose)}원</div></div>
+      <div class="kpi-card"><div class="kpi-label">85% 기준 매출금액</div><div class="kpi-value">${fmt(r.target85)}원</div></div>
+      <div class="kpi-card"><div class="kpi-label">85% 대비 과부족금액</div><div class="kpi-value"><span class="status-badge ${r.shortfall85 >= 0 ? 'ok' : 'danger'}">${r.shortfall85 !== null ? (r.shortfall85 >= 0 ? '+' : '') + fmt(r.shortfall85) + '원' : '-'}</span></div></div>
+      <div class="kpi-card"><div class="kpi-label">잔여인시(해당월)</div><div class="kpi-value"><span class="status-badge ${statusOf(r.remainThisMonth).cls}">${fmt(r.remainThisMonth)}h</span></div></div>
+    </div>
+    <div class="hint" style="margin:-6px 0 14px;">예상마감 출처: ${r.forecastSource}</div>
+
+    <table class="detail-table">
+      <tbody>
+        <tr><td>목표금액</td><td class="num">${fmt(store.target)}원</td></tr>
+        <tr><td>인시생산 (전월 매출÷인시)</td><td class="num">${fmt(store.productivity)}</td></tr>
+        <tr><td>배정인시 (입력 인원 기준)</td><td class="num">${fmt(r.assignedHours)}h</td></tr>
+        <tr><td>허용인시(단시간, 본사 통보)</td><td class="num">${fmt(store.allowedShort)}h</td></tr>
+        <tr><td>허용인시(전체)</td><td class="num">${fmt(r.allowedTotalLive)}h</td></tr>
+        <tr><td>허용인시(매출 기준)</td><td class="num">${fmt(r.allowedBySalesLive)}h</td></tr>
+        <tr><td>허용인시(월평균매출 기준)</td><td class="num">${fmt(store.allowedByAvg)}h</td></tr>
+        <tr><td>잔여인시(매출 기준)</td><td class="num">${fmt(r.remainBySales)}h</td></tr>
+        <tr><td>잔여인시(월평균매출 기준)</td><td class="num">${fmt(r.remainByAvg)}h</td></tr>
+      </tbody>
+    </table>
+  `;
+
+  document.getElementById('store-select').addEventListener('change', (e) => {
+    state.selectedStore = e.target.value; renderStorePanel();
+  });
+  document.querySelectorAll('.hc-input').forEach(inp => {
+    inp.addEventListener('change', (e) => {
+      ov.headcount[e.target.dataset.emp] = Number(e.target.value) || 0;
+      persistOverrides(); renderAll();
+    });
+  });
+  document.getElementById('ot-input').addEventListener('change', (e) => {
+    ov.ot = Number(e.target.value) || 0; persistOverrides(); renderAll();
+  });
+  document.getElementById('holiday-input').addEventListener('change', (e) => {
+    ov.holidays = e.target.value.split(',').map(s => s.trim()).filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s));
+    persistOverrides(); renderAll();
+  });
+  document.getElementById('daily-file-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      await handleDailyUpload(file, name);
+      renderAll();
+    } catch (err) {
+      alert('파일을 읽는 중 문제가 발생했습니다.\n' + err.message);
     }
   });
 }
 
-document.querySelectorAll('#main-table thead th').forEach(th => {
-  th.addEventListener('click', () => {
-    const key = th.dataset.key;
-    if (sortKey === key) sortAsc = !sortAsc; else { sortKey = key; sortAsc = key === 'name' || key === 'type'; }
-    renderTable();
-  });
-});
-document.getElementById('search-input').addEventListener('input', (e) => { searchTerm = e.target.value; renderTable(); });
-document.querySelectorAll('.filter-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    activeType = chip.dataset.type;
-    renderTable();
-  });
-});
+/* ============ 전체 렌더 ============ */
+function renderAll() {
+  renderSummary();
+  renderDangerList();
+  renderTable();
+  renderStorePanel();
+}
 
-renderSummary();
-renderDangerList();
-renderTable();
+function init() {
+  loadOverrides();
+  state.selectedStore = DATA.stores[0].name;
+
+  document.querySelectorAll('#main-table thead th').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      if (sortKey === key) sortAsc = !sortAsc; else { sortKey = key; sortAsc = (key === 'name' || key === 'type'); }
+      renderTable();
+    });
+  });
+  document.getElementById('search-input').addEventListener('input', (e) => { searchTerm = e.target.value; renderTable(); });
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeType = chip.dataset.type;
+      renderTable();
+    });
+  });
+
+  renderAll();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
 </script>
 </body>
 </html>
