@@ -18,12 +18,19 @@
   header .meta{font-size:12px;color:#C9D6EE;}
   main{max-width:1100px;margin:0 auto;padding:14px;}
 
+  .region-upload{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px;}
+  .region-upload label{font-weight:700;font-size:13px;white-space:nowrap;}
+  .region-upload input[type=file]{font-size:12.5px;}
+  #region-upload-status{font-size:12px;color:var(--muted);}
+  #region-upload-status.ok{color:#146C2E;font-weight:600;}
+
   .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px;}
   .summary-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;}
   .summary-card .label{font-size:12px;color:var(--muted);margin-bottom:6px;}
   .summary-card .value{font-size:20px;font-weight:800;}
   .summary-card .value.neg{color:var(--neg);}
   .summary-card .value.pos{color:var(--pos);}
+  .summary-card .value.muted-value{font-size:15px;font-weight:600;color:var(--muted);}
 
   section.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;}
   section.card h2{margin:0 0 4px;font-size:15px;font-weight:700;}
@@ -48,6 +55,7 @@
   .chip{display:inline-block;padding:3px 9px;border-radius:100px;font-size:12px;font-weight:700;}
   .chip.pos-chip{background:#E4EEFB;color:var(--pos);}
   .chip.neg-chip{background:#FBE9E9;color:var(--neg);}
+  .chip.warn-chip{background:#FFF3E0;color:var(--warn);}
 
   .table-scroll{overflow-x:auto;}
   footer{max-width:1100px;margin:0 auto;padding:8px 14px 30px;font-size:11px;color:var(--muted);}
@@ -66,13 +74,14 @@
   .kpi-value{font-size:16px;font-weight:700;}
 
   @media (max-width:760px){
-    #main-table thead{display:none;}
-    #main-table, #main-table tbody, #main-table tr, #main-table td{display:block;width:100%;}
-    #main-table tbody tr{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;padding:8px 4px;background:#fff;}
-    #main-table tbody td{display:flex;justify-content:space-between;align-items:center;text-align:right;border:none;padding:5px 8px;white-space:normal;}
-    #main-table tbody td::before{content:attr(data-label);font-weight:600;color:var(--muted);font-size:11.5px;text-align:left;}
-    #main-table tbody td.name-cell{font-size:14.5px;justify-content:flex-start;gap:8px;}
-    #main-table tbody td.name-cell::before{content:'';}
+    #main-table thead, #sales-table thead{display:none;}
+    #main-table, #main-table tbody, #main-table tr, #main-table td,
+    #sales-table, #sales-table tbody, #sales-table tr, #sales-table td{display:block;width:100%;}
+    #main-table tbody tr, #sales-table tbody tr{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;padding:8px 4px;background:#fff;}
+    #main-table tbody td, #sales-table tbody td{display:flex;justify-content:space-between;align-items:center;text-align:right;border:none;padding:5px 8px;white-space:normal;}
+    #main-table tbody td::before, #sales-table tbody td::before{content:attr(data-label);font-weight:600;color:var(--muted);font-size:11.5px;text-align:left;}
+    #main-table tbody td.name-cell, #sales-table tbody td.name-cell{font-size:14.5px;justify-content:flex-start;gap:8px;}
+    #main-table tbody td.name-cell::before, #sales-table tbody td.name-cell::before{content:'';}
   }
 </style>
 </head>
@@ -86,6 +95,12 @@
 </header>
 
 <main>
+  <div class="region-upload">
+    <label>📤 전 매장 일자별 매출현황 업로드</label>
+    <input type="file" id="region-upload-input" accept=".xlsx,.xls" />
+    <span id="region-upload-status"></span>
+  </div>
+
   <div class="summary-grid" id="summary-grid"></div>
 
   <section class="card">
@@ -155,6 +170,8 @@ const state = {
   overrides: {},
   daily: {},
   selectedStore: null,
+  regionUploaded: false,
+  regionUploadInfo: '',
 };
 
 function loadOverrides() {
@@ -324,6 +341,50 @@ function sheetToRows(ws) {
   fixSheetRange(ws);
   return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
 }
+/* ============ 지역 전체 일자별 매출현황 업로드 (다중 매장 열) ============ */
+function parseRegionDailyRows(rows) {
+  const headerRow = findHeaderRow(rows);
+  if (headerRow === -1) throw new Error('헤더(NO/일자) 행을 찾지 못했습니다.');
+  const header = rows[headerRow];
+  const dateCol = header.findIndex(v => String(v ?? '').trim() === '일자');
+  if (dateCol === -1) throw new Error('"일자" 열을 찾지 못했습니다.');
+  const storeCols = {};
+  header.forEach((v, idx) => {
+    const name = String(v ?? '').trim();
+    if (idx > dateCol && name && name !== '합계') storeCols[name] = idx;
+  });
+  const matched = Object.keys(storeCols).filter(n => DATA.stores.some(s => s.name === n));
+  if (matched.length === 0) {
+    throw new Error('파일의 매장명 열이 도구에 등록된 매장명과 하나도 일치하지 않습니다. (예: "FH 대구동성로중앙점")');
+  }
+  const byStore = {};
+  matched.forEach(n => { byStore[n] = []; });
+  for (let r = headerRow + 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const first = String(row[0] ?? '').trim();
+    if (first === '합계') break;
+    const dv = row[dateCol];
+    if (dv === undefined || dv === null || dv === '') continue;
+    const dt = excelDateToJSDate(dv);
+    if (!dt) continue;
+    matched.forEach(n => {
+      byStore[n].push({ date: dt, value: Number(row[storeCols[n]]) || 0 });
+    });
+  }
+  return { byStore, matchedCount: matched.length };
+}
+async function handleRegionDailyUpload(file) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = sheetToRows(ws);
+  const { byStore, matchedCount } = parseRegionDailyRows(rows);
+  Object.entries(byStore).forEach(([name, byDate]) => {
+    state.daily[name] = { byDate, sourceLabel: `${file.name} (전체 매장 업로드)` };
+  });
+  state.regionUploaded = true;
+  state.regionUploadInfo = `${file.name} · ${matchedCount}개 매장 반영`;
+}
 async function handleDailyUpload(file, storeName) {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array', cellDates: true });
@@ -338,17 +399,37 @@ async function handleDailyUpload(file, storeName) {
 <script>
 /* ============ 요약/위험매장 (잔여인시(월) 기준) ============ */
 function renderSummary() {
-  const results = DATA.stores.map(computeLive);
   const totalTarget = DATA.stores.reduce((a, s) => a + (s.target || 0), 0);
-  const totalForecast = results.reduce((a, r) => a + (r.forecastClose || 0), 0);
-  const totalRemain = results.reduce((a, r) => a + (r.remainBySales || 0), 0);
-  const dangerCount = results.filter(r => r.remainBySales < 0).length;
+  const totalTarget85 = totalTarget * 0.85;
+
+  let rateCell, forecastCell, shortfallCell;
+  if (state.regionUploaded) {
+    const totalForecast = DATA.stores.reduce((a, s) => a + (computeLive(s).forecastClose || 0), 0);
+    const totalRate = totalTarget ? totalForecast / totalTarget : null;
+    const totalShortfall = totalForecast - totalTarget85;
+    rateCell = `<div class="value">${totalRate !== null ? (totalRate * 100).toFixed(1) + '%' : '-'}</div>`;
+    forecastCell = `<div class="value">${fmt(totalForecast)}원</div>`;
+    shortfallCell = `<div class="value ${totalShortfall >= 0 ? 'pos' : 'neg'}">${fmtSigned(totalShortfall, '원')}</div>`;
+  } else {
+    rateCell = `<div class="value muted-value">업로드 필요</div>`;
+    forecastCell = `<div class="value muted-value">업로드 필요</div>`;
+    shortfallCell = `<div class="value muted-value">업로드 필요</div>`;
+  }
+
   document.getElementById('summary-grid').innerHTML = `
     <div class="summary-card"><div class="label">지역 목표 합계</div><div class="value">${fmt(totalTarget)}원</div></div>
-    <div class="summary-card"><div class="label">지역 예상마감 합계</div><div class="value">${fmt(totalForecast)}원</div></div>
-    <div class="summary-card"><div class="label">지역 잔여인시(월) 합계</div><div class="value ${totalRemain < 0 ? 'neg' : 'pos'}">${fmtSigned(totalRemain, 'h')}</div></div>
-    <div class="summary-card"><div class="label">잔여인시(월) 부족 매장</div><div class="value ${dangerCount > 0 ? 'neg' : 'pos'}">${dangerCount}개점</div></div>
+    <div class="summary-card"><div class="label">지역 예상진도율</div>${rateCell}</div>
+    <div class="summary-card"><div class="label">지역 예상마감 합계</div>${forecastCell}</div>
+    <div class="summary-card"><div class="label">지역 85% 기준 매출금액</div><div class="value">${fmt(totalTarget85)}원</div></div>
+    <div class="summary-card"><div class="label">지역 85% 대비 과부족금액</div>${shortfallCell}</div>
   `;
+}
+
+function renderRegionUpload() {
+  document.getElementById('region-upload-status').textContent = state.regionUploaded
+    ? '✓ ' + state.regionUploadInfo
+    : '전 매장 일자별 매출현황 파일을 올리면 지역 예상마감 합계가 계산됩니다';
+  document.getElementById('region-upload-status').classList.toggle('ok', state.regionUploaded);
 }
 
 /* ============ 전체 매장 표 ============ */
@@ -442,6 +523,7 @@ function renderStorePanel() {
 /* ============ 전체 렌더 / 초기화 ============ */
 function renderAll() {
   renderSummary();
+  renderRegionUpload();
   renderTable();
   renderStorePanel();
 }
@@ -458,6 +540,17 @@ function init() {
     });
   });
   document.getElementById('search-input').addEventListener('input', (e) => { searchTerm = e.target.value; renderTable(); });
+
+  document.getElementById('region-upload-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      await handleRegionDailyUpload(file);
+      renderAll();
+    } catch (err) {
+      alert('파일을 읽는 중 문제가 발생했습니다.\n' + err.message);
+    }
+  });
 
   renderAll();
 }
