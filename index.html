@@ -23,6 +23,13 @@
   .region-upload input[type=file]{font-size:12.5px;}
   #region-upload-status, #consol-upload-status{font-size:12px;color:var(--muted);}
   #region-upload-status.ok, #consol-upload-status.ok{color:#146C2E;font-weight:600;}
+  .guide-box{border:1px solid var(--border);border-radius:8px;padding:12px;background:#F7F9FC;margin-bottom:14px;font-size:12.5px;}
+  .guide-title{font-weight:700;margin-bottom:6px;}
+  .guide-me{padding:8px 10px;border-radius:6px;margin-bottom:6px;line-height:1.6;}
+  .guide-me.mall{background:#EEF1F5;} .guide-me.street{background:#E4EEFB;}
+  .guide-box summary{cursor:pointer;color:var(--navy);font-weight:600;margin:4px 0;}
+  .guide-list{margin:4px 0;line-height:1.6;} .guide-list.muted{color:var(--muted);font-size:12px;}
+  .manual-row{margin-top:8px;display:flex;flex-direction:column;gap:4px;} .manual-row label{font-size:11px;font-weight:600;color:var(--muted);} .manual-row input{padding:6px 8px;border:1px solid var(--border);border-radius:5px;background:var(--input-bg);font-size:12.5px;}
   .warn-box{background:#FFF3E0;border:1px solid #F2D2A8;color:var(--warn);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;font-weight:600;}
 
   .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px;}
@@ -67,6 +74,10 @@
   .panel-block h3{margin:0 0 10px;font-size:12.5px;font-weight:700;color:var(--slate);}
   #daily-file-input{width:100%;font-size:12px;margin-bottom:6px;}
   .upload-status{font-size:11.5px;color:var(--muted);}
+  .need-tag{background:#FFF3E0;color:var(--warn);border-radius:5px;padding:1px 6px;font-size:10.5px;margin-left:4px;}
+  .opt-tag{background:#EEF1F5;color:var(--muted);border-radius:5px;padding:1px 6px;font-size:10.5px;margin-left:4px;}
+  .panel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:14px;}
+  #daily-file-input, #panel-consol-input{width:100%;font-size:12px;margin-bottom:6px;}
   .upload-status.ok{color:#146C2E;font-weight:600;}
 
   .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;}
@@ -103,7 +114,7 @@
     <span id="region-upload-status"></span>
   </div>
   <div class="region-upload">
-    <label>📤 기간별 매출분석(채널) 업로드</label>
+    <label>📤 재고통합 매출 파일 업로드</label>
     <input type="file" id="consol-upload-input" accept=".xlsx,.xls" />
     <span id="consol-upload-status"></span>
   </div>
@@ -181,6 +192,7 @@ const state = {
   regionUploaded: false,
   regionUploadInfo: '',
   consol: null,      // { byStore:{name:재고통합매출}, periodText, info }
+  consolManual: {},  // 매장별 재고통합 매출 직접 입력값 (파일보다 우선)
 };
 
 function loadOverrides() {
@@ -254,15 +266,16 @@ function computeLive(store) {
     // 경과일수로 나눠 하루당 같은 금액으로 더한다. (가두점은 이미 합산되어 있어 제외)
     let consolNote = '';
     if (store.type === '몰입점') {
-      const amt = state.consol ? state.consol.byStore[store.name] : undefined;
+      const manual = state.consolManual[store.name];
+      const amt = manual !== undefined ? manual : (state.consol ? state.consol.byStore[store.name] : undefined);
       if (amt !== undefined && (wElapsed + hElapsed) > 0) {
         // 재고통합은 경과일수로 나눠 하루당 같은 금액으로 평일/휴일에 배분 (기존 관리 워크북과 동일 방식)
         const perDay = amt / (wElapsed + hElapsed);
         wSum += perDay * wElapsed;
         hSum += perDay * hElapsed;
-        consolNote = ' · 재고통합 반영';
+        consolNote = manual !== undefined ? ' · 재고통합 반영(직접 입력)' : ' · 재고통합 반영';
       } else {
-        consolNote = ' · 재고통합 미반영(기간별 매출분석 업로드 필요)';
+        consolNote = ' · 재고통합 미반영(재고통합 매출 파일 업로드 필요)';
       }
     }
     const mtdTotal = wSum + hSum;
@@ -424,49 +437,88 @@ async function handleDailyUpload(file, storeName) {
 
 
 /* ============ 기간별 매출분석(채널) 업로드 — 몰입점 재고통합매출 ============ */
+function normLabel(v) { return String(v ?? '').replace(/\s+/g, '').trim(); }
+function toNumber(v) {
+  if (typeof v === 'number') return v;
+  const n = Number(String(v ?? '').replace(/[,\s원]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+// 재고통합 "금액" 열의 이름인지 판단 (수량/총매출/전체매출/포함 등이 들어간 열은 제외)
+function isConsolAmountLabel(n) {
+  return n.includes('재고통합') && (n.includes('매출') || n.includes('금액')) && !/(수량|포함|총|전체|합계|비율|구성)/.test(n);
+}
+// 재고통합 매출이 들어있는 파일을 양식과 상관없이 읽는다.
+// ① "재고통합매출" 이름의 열을 찾고 ② 매장명이 적힌 열을 찾은 뒤 ③ 등록된 매장명과 일치하는 행만 읽는다.
 function parseConsolRows(rows) {
-  let headerRow = -1;
-  for (let r = 0; r < rows.length && headerRow === -1; r++) {
-    (rows[r] || []).forEach(v => { if (String(v ?? '').trim() === '점명') headerRow = r; });
-  }
-  if (headerRow === -1) throw new Error('헤더(점명) 행을 찾지 못했습니다. 기간별 매출분석(채널) 파일이 맞는지 확인해 주세요.');
-  const top = rows[headerRow] || [], mid = rows[headerRow + 1] || [];
-  const nameCol = top.findIndex(v => String(v ?? '').trim() === '점명');
-  const thisAnchor = top.findIndex(v => String(v ?? '').trim() === '금년매출실적');
-  const lastAnchor = top.findIndex(v => String(v ?? '').trim() === '전년매출실적');
-  let consolCol = -1;
-  for (let c = Math.max(thisAnchor, 0); c < (lastAnchor === -1 ? mid.length : lastAnchor); c++) {
-    if (String(mid[c] ?? '').trim() === '재고통합매출') { consolCol = c; break; }
-  }
-  if (consolCol === -1) throw new Error('"재고통합매출" 열(금년매출실적)을 찾지 못했습니다.');
-  let periodText = '';
-  for (let r = 0; r < headerRow; r++) {
-    const cell = String((rows[r] || [])[0] ?? '');
-    const m = cell.match(/정상매출기간\s*:\s*(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
-    if (m) periodText = `${m[1]} ~ ${m[2]}`;
-  }
-  const byStore = {};
-  for (let r = headerRow + 3; r < rows.length; r++) {
+  // ① 금액 열 찾기: 왼쪽에서 가장 먼저 나오는 열(=금년 기준)을 사용
+  let amtRow = -1, amtCol = -1, amtLabel = '';
+  for (let r = 0; r < Math.min(rows.length, 40) && amtRow === -1; r++) {
     const row = rows[r] || [];
-    const name = String(row[nameCol] ?? '').trim();
-    if (!name || name === '합계') continue;
-    byStore[name] = Number(row[consolCol]) || 0;
+    for (let c = 0; c < row.length; c++) {
+      if (isConsolAmountLabel(normLabel(row[c]))) { amtRow = r; amtCol = c; amtLabel = String(row[c]).replace(/\s+/g, ' ').trim(); break; }
+    }
   }
-  return { byStore, periodText };
+  if (amtRow === -1) throw new Error('파일에서 "재고통합매출" 열을 찾지 못했습니다. 재고통합 매출 금액이 들어있는 파일이 맞는지 확인해 주세요.');
+
+  // ② 매장명 열 찾기
+  const storeNames = {};
+  DATA.stores.forEach(s => { storeNames[normLabel(s.name)] = s.name; });
+  let nameCol = -1;
+  const nameLabels = ['점명', '점', '매장명', '매장', '점포명', '점포'];
+  for (let r = 0; r <= Math.min(amtRow + 2, rows.length - 1) && nameCol === -1; r++) {
+    const row = rows[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      if (nameLabels.includes(normLabel(row[c]))) { nameCol = c; break; }
+    }
+  }
+  if (nameCol === -1) { // 이름표가 없으면 데이터에서 매장명이 가장 많이 나오는 열을 사용
+    const counts = {};
+    rows.forEach(row => (row || []).forEach((v, c) => { if (storeNames[normLabel(v)]) counts[c] = (counts[c] || 0) + 1; }));
+    const best = Object.entries(counts).sort((x, y) => y[1] - x[1])[0];
+    if (best) nameCol = Number(best[0]);
+  }
+  if (nameCol === -1) throw new Error('파일에서 매장명 열을 찾지 못했습니다.');
+
+  // ③ 등록된 매장명과 일치하는 행만 읽기 (소계·합계·머리글 행은 자동으로 제외됨)
+  const byStore = {};
+  for (let r = amtRow + 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const key = storeNames[normLabel(row[nameCol])];
+    if (key && byStore[key] === undefined) byStore[key] = toNumber(row[amtCol]);
+  }
+
+  // 조회기간 (예: "기간 : 2026-09-01 ~ 2026-09-27")
+  let periodText = '';
+  for (let r = 0; r <= amtRow && !periodText; r++) {
+    (rows[r] || []).forEach(v => {
+      if (periodText) return;
+      const m = String(v ?? '').match(/(\d{4})[-./](\d{2})[-./](\d{2})\s*~\s*(\d{4})[-./](\d{2})[-./](\d{2})/);
+      if (m) periodText = `${m[1]}-${m[2]}-${m[3]} ~ ${m[4]}-${m[5]}-${m[6]}`;
+    });
+  }
+  return { byStore, periodText, detail: `"${amtLabel}" 열 자동 인식` };
 }
 async function handleConsolUpload(file) {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array' });
   const rows = sheetToRows(wb.Sheets[wb.SheetNames[0]]);
-  const { byStore, periodText } = parseConsolRows(rows);
-  const n = DATA.stores.filter(s => byStore[s.name] !== undefined).length;
-  if (n === 0) throw new Error('파일의 매장명이 도구에 등록된 매장명과 하나도 일치하지 않습니다.');
-  state.consol = { byStore, periodText, info: `${file.name} · ${n}개 매장${periodText ? ' · 기간 ' + periodText : ''}` };
+  const { byStore, periodText, detail } = parseConsolRows(rows);
+  const n = Object.keys(byStore).length;
+  if (n === 0) throw new Error('파일에서 도구에 등록된 매장명과 일치하는 행을 찾지 못했습니다. (예: "FH 대구동성로중앙점")');
+  state.consol = { byStore, periodText, info: `${file.name} · ${detail} · ${n}개 매장${periodText ? ' · 기간 ' + periodText : ''}` };
 }
 function lastDailyDateStr() {
   let max = null;
   Object.values(state.daily).forEach(d => d.byDate.forEach(r => { if (!max || r.date > max) max = r.date; }));
   if (!max) return null;
+  return `${max.getFullYear()}-${String(max.getMonth() + 1).padStart(2, '0')}-${String(max.getDate()).padStart(2, '0')}`;
+}
+
+function storeLastDateStr(name) {
+  const d = state.daily[name];
+  if (!d || !d.byDate.length) return null;
+  let max = d.byDate[0].date;
+  d.byDate.forEach(r => { if (r.date > max) max = r.date; });
   return `${max.getFullYear()}-${String(max.getMonth() + 1).padStart(2, '0')}-${String(max.getDate()).padStart(2, '0')}`;
 }
 
@@ -517,13 +569,13 @@ function renderRegionUpload() {
   const warns = [];
   const mallCount = DATA.stores.filter(s => s.type === '몰입점').length;
   if (state.regionUploaded && !state.consol) {
-    warns.push(`몰입점 ${mallCount}개점은 일자별 매출현황에 재고통합 매출이 빠져 있어 예상마감이 낮게 계산됩니다. 기간별 매출분석(채널) 파일을 함께 올려주세요.`);
+    warns.push(`몰입점 ${mallCount}개점은 일자별 매출현황에 재고통합 매출이 빠져 있어 예상마감이 낮게 계산됩니다. 재고통합 매출 파일을 함께 올려주세요.`);
   }
   if (state.consol && state.regionUploaded && state.consol.periodText) {
     const end = state.consol.periodText.split('~')[1].trim();
     const last = lastDailyDateStr();
     if (last && end !== last) {
-      warns.push(`기간이 서로 다릅니다: 일자별 매출현황은 ${last}까지, 기간별 매출분석은 ${end}까지입니다. 같은 기간으로 조회한 파일을 올려야 정확합니다.`);
+      warns.push(`기간이 서로 다릅니다: 일자별 매출현황은 ${last}까지, 재고통합 매출 파일은 ${end}까지입니다. 같은 기간으로 조회한 파일을 올려야 정확합니다.`);
     }
   }
   const box = document.getElementById('consol-warning');
@@ -585,21 +637,66 @@ function renderStorePanel() {
   const store = DATA.stores.find(s => s.name === name);
   const r = computeLive(store);
   const optionsHtml = DATA.stores.map(s => `<option value="${s.name}" ${s.name === name ? 'selected' : ''}>${s.name}</option>`).join('');
+  const isMall = store.type === '몰입점';
+  const consolAmt = state.consolManual[name] !== undefined ? state.consolManual[name] : (state.consol ? state.consol.byStore[name] : undefined);
+  const warns = [];
+  if (isMall && r.hasDaily && consolAmt === undefined) {
+    warns.push('이 매장은 몰입점이라 일자별 매출에 재고통합이 빠져 있습니다. ② 재고통합 매출 파일을 올리거나 금액을 직접 입력해야 예상마감이 정확해집니다.');
+  }
+  if (isMall && state.consol && state.consol.periodText && r.hasDaily) {
+    const end = state.consol.periodText.split('~')[1].trim();
+    const last = storeLastDateStr(name);
+    if (last && end !== last) warns.push(`기간이 다릅니다: 일자별 매출현황은 ${last}까지, 재고통합 매출 파일은 ${end}까지입니다. 같은 기간으로 조회한 파일을 올려주세요.`);
+  }
+  if (isMall && state.consol && state.consolManual[name] === undefined && state.consol.byStore[name] === undefined) {
+    warns.push('올린 재고통합 매출 파일에서 이 매장 행을 찾지 못했습니다. 매장명이 같은지 확인하거나 금액을 직접 입력해 주세요.');
+  }
+  const warnHtml = warns.length ? `<div class="warn-box" style="margin-bottom:14px;">${warns.map(w => '⚠ ' + w).join('<br>')}</div>` : '';
+  const mallNames = DATA.stores.filter(s => s.type === '몰입점').map(s => s.name);
+  const streetNames = DATA.stores.filter(s => s.type === '가두점').map(s => s.name);
+  const guideHtml = `
+    <div class="guide-box">
+      <div class="guide-title">📌 내 매장은 어떤 파일을 올려야 하나요?</div>
+      <div class="guide-me ${isMall ? 'mall' : 'street'}">
+        <b>${name}</b>은(는) <b>${store.type}</b>입니다 →
+        ${isMall
+          ? '일자별 매출현황에 <b>재고통합 매출이 빠져 있습니다</b>. ① 일자별 매출현황 + ② 재고통합 매출(파일 또는 직접 입력) 두 가지가 필요합니다.'
+          : '일자별 매출현황에 <b>재고통합 매출이 이미 포함</b>되어 있습니다. ① 일자별 매출현황만 올리면 됩니다.'}
+      </div>
+      <details>
+        <summary>매장 유형 목록 보기 (가두점 ${streetNames.length}곳 / 몰입점 ${mallNames.length}곳)</summary>
+        <div class="guide-list"><b>가두점</b> (일자별 매출현황만): ${streetNames.join(', ')}</div>
+        <div class="guide-list"><b>몰입점</b> (일자별 매출현황 + 재고통합 매출): ${mallNames.join(', ')}</div>
+        <div class="guide-list muted">구분 방법: 일자별 매출현황의 매장 합계가 "매장매출(오프라인)"과 같으면 재고통합이 빠진 매장(몰입점)입니다.</div>
+        <div class="guide-list muted">재고통합 매출 파일: "재고통합매출" 열과 매장명이 있는 조회 결과(예: 판매속보(재고통합), 기간별 매출분석)를 <b>일자별 매출현황과 같은 기간</b>으로 조회해 올려주세요. 양식은 자동으로 인식하며, 파일이 없으면 금액을 직접 입력할 수 있습니다.</div>
+      </details>
+    </div>`;
 
   document.getElementById('store-panel').innerHTML = `
     <div class="store-head">
       <select id="store-select">${optionsHtml}</select>
-      <span class="hint">${store.type}${store.type === '몰입점' ? ' · 재고통합 매출은 기간별 매출분석 파일로 반영' : ' · 재고통합 포함 매출 기준'}</span>
+      <span class="hint">${store.type}${store.type === '몰입점' ? ' · 일자별 매출에 재고통합이 빠져 있어 별도 반영 필요' : ' · 재고통합 포함 매출 기준'}</span>
     </div>
-    <div class="panel-block" style="margin-bottom:16px;">
-      <h3>일자별 매출현황 업로드 (선택)</h3>
-      <input type="file" id="daily-file-input" accept=".xlsx,.xls" />
-      <div class="upload-status ${r.hasDaily ? 'ok' : 'idle'}" id="daily-status">${r.hasDaily ? '✓ ' + state.daily[name].sourceLabel : '업로드 전에는 파일 기준 추정치가 표시됩니다'}</div>
+    ${guideHtml}
+    <div class="panel-grid">
+      <div class="panel-block">
+        <h3>① 일자별 매출현황 업로드</h3>
+        <input type="file" id="daily-file-input" accept=".xlsx,.xls" />
+        <div class="upload-status ${r.hasDaily ? 'ok' : 'idle'}" id="daily-status">${r.hasDaily ? '✓ ' + state.daily[name].sourceLabel : '업로드하면 예상마감이 실시간으로 계산됩니다'}</div>
+      </div>
+      <div class="panel-block">
+        <h3>② 재고통합 매출 ${isMall ? '<span class="need-tag">몰입점 필수</span>' : '<span class="opt-tag">가두점은 불필요</span>'}</h3>
+        <input type="file" id="panel-consol-input" accept=".xlsx,.xls" />
+        <div class="upload-status ${state.consol ? 'ok' : 'idle'}">${state.consol ? '✓ ' + state.consol.info : (isMall ? '재고통합 매출이 나오는 파일을 올려주세요 (양식은 자동 인식)' : '가두점은 일자별 매출에 재고통합이 이미 포함되어 있습니다')}</div>
+        ${isMall ? `<div class="manual-row"><label>파일이 없으면 직접 입력 (조회기간 누계, 원)</label><input type="number" min="0" id="consol-manual-input" placeholder="예: 5792700" value="${state.consolManual[name] !== undefined ? state.consolManual[name] : ''}" /></div>` : ''}
+      </div>
     </div>
+    ${warnHtml}
     <div class="kpi-grid">
       <div class="kpi-card"><div class="kpi-label">예상 진도율</div><div class="kpi-value ${r.hasDaily ? '' : 'muted-value'}">${r.hasDaily && r.forecastRate !== null ? (r.forecastRate * 100).toFixed(1) + '%' : '업로드 필요'}</div></div>
       <div class="kpi-card"><div class="kpi-label">예상마감금액</div><div class="kpi-value ${r.hasDaily ? '' : 'muted-value'}">${r.hasDaily ? fmt(r.forecastClose) + '원' : '업로드 필요'}</div></div>
       <div class="kpi-card"><div class="kpi-label">85% 기준 매출금액</div><div class="kpi-value">${fmt(r.target85)}원</div></div>
+      <div class="kpi-card"><div class="kpi-label">재고통합 매출(누계)</div><div class="kpi-value ${consolAmt !== undefined ? '' : 'muted-value'}">${consolAmt !== undefined ? fmt(consolAmt) + '원' : (isMall ? '업로드 필요' : '일자별 매출에 포함')}</div>${consolAmt !== undefined && !isMall ? '<div class="hint">일자별 매출에 이미 포함(참고용)</div>' : ''}</div>
       <div class="kpi-card"><div class="kpi-label">85% 대비 과부족금액</div><div class="kpi-value ${r.hasDaily ? '' : 'muted-value'}">${r.hasDaily ? `<span class="chip ${signClass(r.shortfall85)}">${fmtSigned(r.shortfall85, '원')}</span>` : '업로드 필요'}</div></div>
     </div>
     <div class="hint" style="margin-top:6px;">${r.hasDaily ? r.forecastSource : '이 매장의 일자별 매출현황을 업로드하거나(개별), 상단에서 전 매장 파일을 업로드하면(일괄) 실시간으로 계산됩니다.'}</div>
@@ -607,6 +704,22 @@ function renderStorePanel() {
 
   document.getElementById('store-select').addEventListener('change', (e) => {
     state.selectedStore = e.target.value; renderStorePanel();
+  });
+  const manualEl = document.getElementById('consol-manual-input');
+  if (manualEl) manualEl.addEventListener('change', (e) => {
+    const v = e.target.value.trim();
+    if (v === '') delete state.consolManual[name]; else state.consolManual[name] = Math.max(Number(v) || 0, 0);
+    renderAll();
+  });
+  document.getElementById('panel-consol-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      await handleConsolUpload(file);
+      renderAll();
+    } catch (err) {
+      alert('파일을 읽는 중 문제가 발생했습니다.\n' + err.message);
+    }
   });
   document.getElementById('daily-file-input').addEventListener('change', async (e) => {
     const file = e.target.files[0];
